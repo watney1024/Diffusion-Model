@@ -8,3 +8,9 @@
 [【论文精读】Diffusion Model 开山之作DDPM](https://www.bilibili.com/video/BV1WD4y157u3/?share_source=copy_web&vd_source=5dc089148483e98d94828c5bf4ea5929)  
 [【较真系列】讲人话-Diffusion Model全解(原理+代码+公式)](https://www.bilibili.com/video/BV19H4y1G73r/?share_source=copy_web&vd_source=5dc089148483e98d94828c5bf4ea5929)   
 下载了DDPM和DDIM论文，第一个视频看到了1-4，大致知道了DDPM的过程
+
+## 2025年1月18日
+跑了下DDPM的代码，数据集是cifar10,250个epoch在服务器上跑了4个小时。
+
+## 2025年1月19日
+写了一部分DDPM的公式分析，完成了扩散和重建阶段的数下公式推导，极大似然部分完成了一部分。由于公式比较多，我是用latex写的，所以只上传了pdf文件。
