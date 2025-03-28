@@ -52,3 +52,7 @@ Understanding Diffusion Models: A Unified Perspective
 DENOISING DIFFUSION IMPLICIT MODELS
 https://spaces.ac.cn/archives/9181 
 SCORE-BASED GENERATIVE MODELING THROUGH STOCHASTIC DIFFERENTIAL EQUATIONS
+
+
+## 2025年3月28日
+上传了训练的文件，包括了ddpm和ddim，目前是在mnist上训练。
