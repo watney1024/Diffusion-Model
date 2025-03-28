@@ -209,13 +209,6 @@ def reverse_diffusion(model, DS, img_shape=(3, 64, 64), num_images=5, nrow=8, de
         x_t = Denoising_onestep(model, DS, x_t, timesteps_batch, eta, start_at_T=True if time_step == 1 else False)
 
         # 如果需要保存帧，继续执行相关代码
-
-        # Assign a batch of timesteps (value all at t) to each X(t): [B]
-        timesteps_batch = torch.ones(num_images, dtype=torch.long, device=device) * time_step
-
-        x_t = Denoising_onestep(model, DS, x_t, timesteps_batch, eta, start_at_T=True if time_step == 1 else False)
-
-        # put the intermediate results into a frame
         if generate_video:
             # the generated image is C,H,W and C is RGB format (PIL), values in 0-1 range
             grid_cv2_npy = make_a_grid_based_cv2_npy(x_t, nrow=nrow)

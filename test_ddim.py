@@ -13,8 +13,16 @@ from unet import *
 from DDIM_new import *
 from IPython.display import display, HTML
 from torch.utils.data import DataLoader
+import random
 from tqdm import tqdm
-
+seed = 3407
+random.seed(seed)
+torch.manual_seed(seed)
+os.environ['PYTHONHASHSEED'] = str(seed)
+np.random.seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 @dataclass
 class BaseConfig:
     DEVICE = get_default_device()
@@ -98,5 +106,21 @@ filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
 
 save_path = os.path.join(log_dir, filename)
 # 还原过程
-denoising_reverse_diffusion(model, sd, x_T= X_t_batch, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
-                  save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=0, tau=5)
+# denoising_reverse_diffusion(model, sd, x_T= X_t_batch, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
+#                   save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=0, tau=5)
+# probablity_flow(model, sd, x_T= X_t_batch, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
+#                   save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=0, tau=5)
+x_diffusion = probability_flow(model, sd, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
+                  save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=1, tau=1,reverse=True, x_t=X_0_batch)
+#正向，得到的是噪声图
+filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
+save_path = os.path.join(log_dir, filename)
+probability_flow(model, sd, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
+                  save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=1, tau=1,reverse=False, x_t=x_diffusion)
+
+filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
+save_path = os.path.join(log_dir, filename)
+probability_flow(model, sd, img_shape=TrainingConfig.IMG_SHAPE, num_images=X_0_batch.shape[0], nrow=4,
+                  save_path=save_path, generate_video=generate_video, device=BaseConfig.DEVICE, eta=1, tau=1,reverse=False, x_t=X_t_batch)
+
+# 我怀疑这个函数有问题，我明天要看看这个函数的输出

@@ -13,7 +13,7 @@ from torchmetrics import MeanMetric
 from IPython.display import display
 from tools import get, make_a_grid_based_cv2_npy, cv2_to_pil, make_a_grid_based_PIL_npy, frames2vid_for_cv2frames
 import numpy as np
-
+from torchdiffeq import odeint_adjoint as odeint
 class Diffusion_setting:
     def __init__(self, num_diffusion_timesteps=1000, img_shape=(3, 64, 64), device="cpu"):
         self.num_diffusion_timesteps = num_diffusion_timesteps
@@ -209,13 +209,6 @@ def reverse_diffusion(model, DS, img_shape=(3, 64, 64), num_images=5, nrow=8, de
         x_t = Denoising_onestep(model, DS, x_t, timesteps_batch, eta, start_at_T=True if time_step == 1 else False)
 
         # 如果需要保存帧，继续执行相关代码
-
-        # Assign a batch of timesteps (value all at t) to each X(t): [B]
-        timesteps_batch = torch.ones(num_images, dtype=torch.long, device=device) * time_step
-
-        x_t = Denoising_onestep(model, DS, x_t, timesteps_batch, eta, start_at_T=True if time_step == 1 else False)
-
-        # put the intermediate results into a frame
         if generate_video:
             # the generated image is C,H,W and C is RGB format (PIL), values in 0-1 range
             grid_cv2_npy = make_a_grid_based_cv2_npy(x_t, nrow=nrow)
@@ -366,3 +359,84 @@ def denoising_reverse_diffusion(model, DS, x_T , img_shape=(3, 64, 64), num_imag
         pil_image.save(save_path, format=save_path[-3:].upper())  # save PIL image
         display(pil_image)  # show PIL image
         return None
+
+
+@torch.inference_mode()
+def probability_flow(model, DS, img_shape=(3, 64, 64), num_images=5, nrow=8, device="cpu",
+                     save_path=None, generate_video=True, eta=1.0, tau=1, scheduling='uniform', reverse=False, x_t=None):
+    # 如果 x_t 没有传入，则随机生成初始噪声 x_T
+    if x_t is None:
+        x_T = torch.randn((num_images, *img_shape), device=device)
+        x_t = x_T
+    else:
+        # 确保 x_t 的形状和设备正确
+        assert x_t.shape == (num_images, *img_shape), f"Expected shape {(num_images, *img_shape)}, but got {x_t.shape}"
+        x_t = x_t.to(device)
+
+    def reparameterize_sigma(idx):
+        alpha_cumulative = DS.alpha_cumulative[idx]
+        return torch.sqrt((1 - alpha_cumulative) / alpha_cumulative)
+
+    def reparameterize_x(x, idx):
+        alpha_cumulative = DS.alpha_cumulative[idx]
+        return x / torch.sqrt(alpha_cumulative)
+
+    model.eval()
+
+    def _get_process_scheduling(DS, reverse=True):
+        if scheduling == 'uniform':
+            diffusion_process = list(range(0, DS.num_diffusion_timesteps, tau)) + [DS.num_diffusion_timesteps - 1]
+        elif scheduling == 'exp':
+            diffusion_process = (np.linspace(0, np.sqrt(DS.num_diffusion_timesteps * 0.8), tau) ** 2)
+            diffusion_process = [int(s) for s in list(diffusion_process)] + [DS.num_diffusion_timesteps - 1]
+        else:
+            assert 'Not Implemented'
+
+        if reverse:
+            # 如果是反向过程，先将 diffusion_process 转换为列表，再反转
+            diffusion_process = list(diffusion_process)
+            diffusion_process = diffusion_process[::-1]  # 使用切片反转列表
+            # 配对相邻的时间步
+            diffusion_process = list(zip(diffusion_process[:-1], diffusion_process[1:]))
+        else:
+            # 如果是正向过程，直接使用时间步序列
+            # 配对相邻的时间步
+            diffusion_process = list(zip(diffusion_process[:-1], diffusion_process[1:]))
+
+        return diffusion_process
+
+    dif_process = _get_process_scheduling(DS, reverse=reverse)
+    # 使用 tqdm 进行迭代
+    if generate_video:
+        frames_list = []
+
+    for time_step_pair in tqdm(iterable=dif_process, total=len(dif_process), dynamic_ncols=False, desc="Sampling :: ",
+                               position=0):
+        idx_delta_t, idx = time_step_pair  # 假设你想要的是第二个值
+
+        # 确保 idx 是一个张量
+        idx_tensor = torch.tensor([idx] * num_images, dtype=torch.long, device=device)
+
+        x_bar_delta_t = reparameterize_x(x_t, idx) + 0.5 * (
+            reparameterize_sigma(idx_delta_t) ** 2 - reparameterize_sigma(idx) ** 2) / reparameterize_sigma(idx) * model(x_t, idx_tensor)
+        x_t = x_bar_delta_t * torch.sqrt(DS.alpha_cumulative[idx_delta_t])
+
+        # 保存中间结果
+        if generate_video:
+            grid_cv2_npy = make_a_grid_based_cv2_npy(x_t, nrow=nrow)
+            frames_list.append(grid_cv2_npy)
+
+    # 生成视频或保存图像
+    if generate_video:
+        # 生成并保存视频
+        frames2vid_for_cv2frames(frames_list, save_path)
+        # 显示最终结果
+        pil_image = cv2_to_pil(frames_list[-1])
+        display(pil_image)
+    else:
+        # 保存最终结果
+        pil_image = make_a_grid_based_PIL_npy(x_t, nrow=nrow)
+        pil_image.save(save_path, format=save_path[-3:].upper())
+        display(pil_image)
+
+    return x_t
