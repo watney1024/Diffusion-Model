@@ -1,6 +1,8 @@
 # 训练过程
 
-![Desktop Screenshot 2025.03.18 - 14.48.16.31](D:/code/Pycharm/Diffusion-Model/Desktop%20Screenshot%202025.03.18%20-%2014.48.16.31.png)
+![pict_noise](D:/code/Pycharm/Diffusion-Model/pict_noise.jpg)
+
+
 
 ## 正向过程
 
